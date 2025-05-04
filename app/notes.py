@@ -5,7 +5,6 @@ from database import SessionLocal
 from models import User, Note
 from schemas import NoteDto
 from utils import decode_token
-from datetime import datetime
 
 notes_router = APIRouter()
 
