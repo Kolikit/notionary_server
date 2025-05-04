@@ -1,11 +1,13 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+import uuid
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
 
@@ -14,10 +16,10 @@ class User(Base):
 class Note(Base):
     __tablename__ = "notes"
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    content = Column(String)
-    updated_at = Column(String)
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    title = Column(String(255))
+    content = Column(Text)
+    updated_at = Column(DateTime, default=datetime.now())
+    user_id = Column(String, ForeignKey("users.id"))
 
-    user_id = Column(Integer, ForeignKey("users.id"))
     owner = relationship("User", back_populates="notes")

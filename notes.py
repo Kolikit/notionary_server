@@ -5,7 +5,6 @@ from database import SessionLocal
 from models import User, Note
 from schemas import NoteDto
 from utils import decode_token
-from datetime import datetime
 from fastapi import Query
 from dateutil.parser import isoparse
 
@@ -58,19 +57,24 @@ def get_notes(
 @notes_router.post("/sync")
 def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     for n in notes:
-        existing = db.query(Note).filter(Note.id == n.id, Note.user_id == user.id).first()
+        if n.id:
+            existing = db.query(Note).filter(Note.id == n.id, Note.user_id == user.id).first()
+        else:
+            existing = None
+
         if existing:
             existing.title = n.title
             existing.content = n.content
             existing.updated_at = n.updated_at
         else:
             new_note = Note(
-                id=n.id,
+                id=n.id if n.id else None,
                 title=n.title,
                 content=n.content,
                 updated_at=n.updated_at,
-                user_id=user.id
+                owner=user
             )
             db.add(new_note)
+
     db.commit()
     return {"status": "success"}

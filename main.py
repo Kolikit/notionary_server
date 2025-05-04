@@ -2,7 +2,9 @@ from fastapi import FastAPI
 from database import Base, engine
 from auth import auth_router
 from notes import notes_router
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)

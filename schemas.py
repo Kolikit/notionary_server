@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 class UserCreate(BaseModel):
     username: str
@@ -13,7 +14,10 @@ class TokenData(BaseModel):
     username: Optional[str] = None
 
 class NoteDto(BaseModel):
-    id: int
+    id: Optional[str]
     title: str
-    content: Optional[str] = None
-    updated_at: str
+    content: str
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
