@@ -5,6 +5,7 @@ from database import SessionLocal
 from models import User, Note
 from schemas import NoteDto
 from utils import decode_token
+from datetime import datetime
 
 notes_router = APIRouter()
 
@@ -29,16 +30,23 @@ def get_current_user(token: str = Header(...), db: Session = Depends(get_db)) ->
 @notes_router.get("/sync", response_model=List[NoteDto])
 def get_notes(after: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     try:
+        try:
+            after_dt = datetime.fromisoformat(after.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверный формат даты")
+
         notes = db.query(Note).filter(
             Note.user_id == user.id,
-            Note.updated_at > after
+            Note.updated_at > after_dt.isoformat()
         ).all()
+
         return [
             NoteDto(id=n.id, title=n.title, content=n.content, updated_at=n.updated_at)
             for n in notes
         ]
-    except Exception:
-        raise HTTPException(status_code=500, detail="Ошибка при получении заметок")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении заметок: {str(e)}")
 
 @notes_router.post("/sync")
 def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
