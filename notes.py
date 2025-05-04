@@ -1,0 +1,62 @@
+from fastapi import APIRouter, Depends, HTTPException, Header
+from sqlalchemy.orm import Session
+from typing import List
+from database import SessionLocal
+from models import User, Note
+from schemas import NoteDto
+from utils import decode_token
+from datetime import datetime
+
+notes_router = APIRouter()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def get_current_user(token: str = Header(...), db: Session = Depends(get_db)) -> User:
+    try:
+        payload = decode_token(token.replace("Bearer ", ""))
+        username = payload.get("sub")
+        user = db.query(User).filter(User.username == username).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="Пользователь не найден")
+        return user
+    except:
+        raise HTTPException(status_code=401, detail="Недействительный токен")
+
+@notes_router.get("/sync", response_model=List[NoteDto])
+def get_notes(after: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        notes = db.query(Note).filter(
+            Note.user_id == user.id,
+            Note.updated_at > after
+        ).all()
+        return [
+            NoteDto(id=n.id, title=n.title, content=n.content, updated_at=n.updated_at)
+            for n in notes
+        ]
+    except Exception:
+        raise HTTPException(status_code=500, detail="Ошибка при получении заметок")
+
+@notes_router.post("/sync")
+def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    for n in notes:
+        existing = db.query(Note).filter(Note.id == n.id, Note.user_id == user.id).first()
+        if existing:
+            existing.title = n.title
+            existing.content = n.content
+            existing.updated_at = n.updated_at
+        else:
+            new_note = Note(
+                id=n.id,
+                title=n.title,
+                content=n.content,
+                updated_at=n.updated_at,
+                owner=user
+            )
+            db.add(new_note)
+    db.commit()
+    return {"status": "success"}
