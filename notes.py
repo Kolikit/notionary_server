@@ -6,6 +6,8 @@ from models import User, Note
 from schemas import NoteDto
 from utils import decode_token
 from datetime import datetime
+from fastapi import Query
+from dateutil.parser import isoparse
 
 notes_router = APIRouter()
 
@@ -28,12 +30,16 @@ def get_current_user(token: str = Header(...), db: Session = Depends(get_db)) ->
         raise HTTPException(status_code=401, detail="Недействительный токен")
 
 @notes_router.get("/sync", response_model=List[NoteDto])
-def get_notes(after: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_notes(
+    after: str = Query(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     try:
         try:
-            after_dt = datetime.fromisoformat(after.replace("Z", "+00:00"))
+            after_dt = isoparse(after)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Неверный формат даты")
+            raise HTTPException(status_code=400, detail=f"Неверный формат даты: {after}")
 
         notes = db.query(Note).filter(
             Note.user_id == user.id,
@@ -62,7 +68,7 @@ def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db:
                 title=n.title,
                 content=n.content,
                 updated_at=n.updated_at,
-                owner=user
+                user_id=user.id
             )
             db.add(new_note)
     db.commit()
