@@ -16,7 +16,7 @@ class User(Base):
 class Note(Base):
     __tablename__ = "notes"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String, primary_key=True)
     title = Column(String(255))
     content = Column(Text)
     updated_at = Column(DateTime, default=datetime.now())

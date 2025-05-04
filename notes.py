@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
@@ -56,6 +58,7 @@ def get_notes(
 
 @notes_router.post("/sync")
 def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    logging.debug(f"Received notes: {notes}")
     for n in notes:
         if n.id:
             existing = db.query(Note).filter(Note.id == n.id, Note.user_id == user.id).first()
@@ -77,4 +80,5 @@ def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db:
             db.add(new_note)
 
     db.commit()
+    logging.debug(f"Synced notes for user {user.username}")
     return {"status": "success"}
