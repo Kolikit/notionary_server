@@ -18,15 +18,16 @@ def get_db():
     finally:
         db.close()
 
-def get_current_user(token: str = Header(...), db: Session = Depends(get_db)) -> User:
+def get_current_user(authorization: str = Header(..., alias="Authorization"), db: Session = Depends(get_db)) -> User:
     try:
-        payload = decode_token(token.replace("Bearer ", ""))
+        token = authorization.replace("Bearer ", "")
+        payload = decode_token(token)
         username = payload.get("sub")
         user = db.query(User).filter(User.username == username).first()
         if user is None:
             raise HTTPException(status_code=401, detail="Пользователь не найден")
         return user
-    except:
+    except Exception:
         raise HTTPException(status_code=401, detail="Недействительный токен")
 
 @notes_router.get("/sync", response_model=List[NoteDto])
