@@ -1,16 +1,18 @@
 import logging
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from sqlalchemy.orm import Session
 from typing import List
+from dateutil.parser import isoparse
+
 from database import SessionLocal
 from models import User, Note
 from schemas import NoteDto
 from utils import decode_token
-from fastapi import Query
-from dateutil.parser import isoparse
 
 notes_router = APIRouter()
+
 
 def get_db():
     db = SessionLocal()
@@ -19,7 +21,11 @@ def get_db():
     finally:
         db.close()
 
-def get_current_user(authorization: str = Header(..., alias="Authorization"), db: Session = Depends(get_db)) -> User:
+
+def get_current_user(
+    authorization: str = Header(..., alias="Authorization"),
+    db: Session = Depends(get_db)
+) -> User:
     try:
         token = authorization.replace("Bearer ", "")
         payload = decode_token(token)
@@ -30,6 +36,7 @@ def get_current_user(authorization: str = Header(..., alias="Authorization"), db
         return user
     except Exception:
         raise HTTPException(status_code=401, detail="Недействительный токен")
+
 
 @notes_router.get("/sync", response_model=List[NoteDto])
 def get_notes(
@@ -64,22 +71,36 @@ def get_notes(
         raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
 
 @notes_router.post("/sync")
-def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    #logging.debug(f"Received notes: {notes}")
+def sync_notes(
+    notes: List[NoteDto],
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    #logging.debug(f"Received notes from {user.username}: {notes}")
+
     for n in notes:
-        if n.id:
-            existing = db.query(Note).filter(Note.id == n.id, Note.user_id == user.id).first()
-        else:
-            existing = None
+        existing = db.query(Note).filter(Note.id == n.id).first()
 
         if existing:
-            existing.title = n.title
-            existing.content = n.content
-            existing.updated_at = n.updated_at
-            existing.is_deleted = n.is_deleted
+            if existing.user_id != user.id:
+                new_id = str(uuid.uuid4())
+                new_note = Note(
+                    id=new_id,
+                    title=n.title,
+                    content=n.content,
+                    updated_at=n.updated_at,
+                    is_deleted=n.is_deleted,
+                    owner=user
+                )
+                db.add(new_note)
+            else:
+                existing.title = n.title
+                existing.content = n.content
+                existing.updated_at = n.updated_at
+                existing.is_deleted = n.is_deleted
         else:
             new_note = Note(
-                id=n.id if n.id else None,
+                id=n.id,
                 title=n.title,
                 content=n.content,
                 updated_at=n.updated_at,
@@ -89,5 +110,5 @@ def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db:
             db.add(new_note)
 
     db.commit()
-    logging.debug(f"Synced notes for user {user.username}")
+    logging.debug(f"Synced {len(notes)} notes for user {user.username}")
     return {"status": "success"}
