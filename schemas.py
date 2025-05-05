@@ -16,8 +16,9 @@ class TokenData(BaseModel):
 class NoteDto(BaseModel):
     id: Optional[str]
     title: str
-    content: str
+    content: Optional[str]
     updated_at: datetime
+    is_deleted: bool = False
 
     class Config:
         orm_mode = True

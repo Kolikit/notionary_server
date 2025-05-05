@@ -45,20 +45,27 @@ def get_notes(
 
         notes = db.query(Note).filter(
             Note.user_id == user.id,
-            Note.updated_at > after_dt.isoformat()
+            Note.updated_at > after_dt,
+            Note.is_deleted == False
         ).all()
 
         return [
-            NoteDto(id=n.id, title=n.title, content=n.content, updated_at=n.updated_at)
-            for n in notes
+            NoteDto(
+                id=n.id,
+                title=n.title,
+                content=n.content,
+                updated_at=n.updated_at,
+                is_deleted=n.is_deleted
+            ) for n in notes
         ]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Ошибка при получении заметок: {str(e)}")
+        logging.error("Ошибка:", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
 
 @notes_router.post("/sync")
 def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    logging.debug(f"Received notes: {notes}")
+    #logging.debug(f"Received notes: {notes}")
     for n in notes:
         if n.id:
             existing = db.query(Note).filter(Note.id == n.id, Note.user_id == user.id).first()
@@ -69,12 +76,14 @@ def sync_notes(notes: List[NoteDto], user: User = Depends(get_current_user), db:
             existing.title = n.title
             existing.content = n.content
             existing.updated_at = n.updated_at
+            existing.is_deleted = n.is_deleted
         else:
             new_note = Note(
                 id=n.id if n.id else None,
                 title=n.title,
                 content=n.content,
                 updated_at=n.updated_at,
+                is_deleted=n.is_deleted,
                 owner=user
             )
             db.add(new_note)

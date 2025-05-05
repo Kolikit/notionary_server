@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import Base
@@ -20,6 +20,7 @@ class Note(Base):
     title = Column(String(255))
     content = Column(Text)
     updated_at = Column(DateTime, default=datetime.now())
+    is_deleted = Column(Boolean, default=False)
     user_id = Column(String, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="notes")
